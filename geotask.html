@@ -346,7 +346,7 @@
           <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-file').click()" style="flex:1">📄 파일</button>
         </div>
         <input type="file" id="pick-photo" accept="image/*" style="display:none" onchange="handleAttach(this,'image')">
-        <input type="file" id="pick-file" accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,*" style="display:none" onchange="handleAttach(this,'file')">
+        <input type="file" id="pick-file" style="display:none" onchange="handleAttach(this,'file')">
         <div class="attach-grid" id="attach-preview"></div>
       </div>
       <div class="action-row" style="padding:0;gap:8px;margin-top:4px">
@@ -837,12 +837,19 @@ function openAddTask(locId) {
 function handleAttach(input, type) {
   const file = input.files[0];
   if (!file) return;
+  // 5MB 제한
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('파일이 너무 큽니다 (최대 5MB)');
+    input.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => {
     const att = { name: file.name, type, dataUrl: e.target.result };
     pendingAttachments.push(att);
     renderAttachPreview();
   };
+  reader.onerror = () => showToast('파일을 읽을 수 없습니다');
   reader.readAsDataURL(file);
 }
 
