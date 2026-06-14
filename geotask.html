@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GeoTask">
+<title>GeoTask</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --surface2: #22222e;
+    --border: #2e2e3e;
+    --accent: #7c6cfc;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #f0eeff;
+    --text2: #9090b0;
+    --text3: #5a5a7a;
+    --radius: 14px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Pro Display', sans-serif; overscroll-behavior: none; }
+
+  /* Layout */
+  #app { display: flex; flex-direction: column; height: 100dvh; }
+  #header {
+    padding: 16px 20px 12px;
+    padding-top: calc(env(safe-area-inset-top, 12px) + 12px);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(20px);
+  }
+  #header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  #header h1 span { color: var(--accent2); }
+  #content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #tabbar {
+    display: flex; background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding-bottom: var(--safe-bottom);
+  }
+  .tab-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; padding: 10px 0; background: none; border: none;
+    color: var(--text3); font-size: 10px; cursor: pointer; transition: color .15s;
+  }
+  .tab-btn.active { color: var(--accent2); }
+  .tab-btn svg { width: 22px; height: 22px; }
+  .tab-badge {
+    position: absolute; top: 6px; right: calc(50% - 18px);
+    background: var(--accent); color: #fff; font-size: 9px; font-weight: 700;
+    min-width: 16px; height: 16px; border-radius: 8px; padding: 0 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Panels */
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+    cursor: pointer; transition: background .12s;
+  }
+  .card:active { background: var(--surface2); }
+  .card-header { display: flex; align-items: center; gap: 10px; }
+  .card-emoji { font-size: 26px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: var(--surface2); border-radius: 10px; flex-shrink: 0; }
+  .card-info { flex: 1; min-width: 0; }
+  .card-name { font-size: 16px; font-weight: 600; }
+  .card-meta { font-size: 12px; color: var(--text2); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge { background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-green { background: var(--green); color: #000; }
+  .badge-gray { background: var(--surface2); color: var(--text2); font-size: 10px; }
+
+  /* Pulse ring for active nearby */
+  .card.nearby-active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(124,108,252,.25); }
+
+  /* Tasks inside card */
+  .task-list { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .task-row { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; }
+  .task-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; margin-top: 1px; }
+  .task-check.done { background: var(--accent); border-color: var(--accent); }
+  .task-check.done::after { content: '✓'; font-size: 11px; color: #fff; }
+  .task-text { flex: 1; font-size: 14px; line-height: 1.4; }
+  .task-text.done { text-decoration: line-through; color: var(--text3); }
+  .task-note { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .task-attach { font-size: 11px; color: var(--accent2); margin-top: 2px; }
+
+  /* Buttons */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 18px; border-radius: 10px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn:active { opacity: .7; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: rgba(248,113,113,.15); color: var(--red); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; border-radius: 8px; }
+  .btn-icon { width: 38px; height: 38px; padding: 0; border-radius: 10px; }
+
+  /* FAB */
+  #fab {
+    position: fixed; bottom: calc(70px + var(--safe-bottom)); right: 20px;
+    width: 54px; height: 54px; border-radius: 27px;
+    background: var(--accent); border: none; color: #fff;
+    font-size: 26px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(124,108,252,.5); cursor: pointer; z-index: 50;
+    transition: transform .15s;
+  }
+  #fab:active { transform: scale(.92); }
+
+  /* Forms / Modals */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: flex-end; z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.center { align-items: center; padding: 20px; }
+  .modal {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    width: 100%; max-height: 92dvh; overflow-y: auto;
+    padding: 0 0 calc(20px + var(--safe-bottom));
+    animation: slideUp .25s ease;
+  }
+  .modal.center-modal { border-radius: 20px; max-height: 85dvh; padding-bottom: 20px; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+  .modal-title { font-size: 18px; font-weight: 700; padding: 16px 20px 8px; }
+  .field { margin-bottom: 14px; }
+  .field label { font-size: 12px; color: var(--text2); font-weight: 600; display: block; margin-bottom: 6px; letter-spacing: .3px; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 14px; color: var(--text); font-size: 15px;
+    outline: none; font-family: inherit; resize: none;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .form-body { padding: 8px 20px; }
+  .row { display: flex; gap: 10px; }
+  .row .field { flex: 1; }
+
+  /* Map picker */
+  #map-picker { width: 100%; height: 200px; border-radius: 10px; background: var(--surface2); position: relative; overflow: hidden; border: 1px solid var(--border); }
+  #map-iframe { width: 100%; height: 100%; border: none; border-radius: 10px; }
+  .map-pin-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); font-size: 28px; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+
+  /* Location status bar */
+  #location-bar {
+    margin: 0 16px 12px;
+    padding: 10px 14px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .loc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .loc-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .loc-dot.inactive { background: var(--text3); }
+  .loc-dot.pending { background: var(--yellow); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+  /* Trigger modal */
+  #trigger-modal .task-list { margin-top: 0; border-top: none; padding-top: 0; }
+  #trigger-modal .trigger-header { padding: 20px 20px 12px; text-align: center; }
+  #trigger-modal .trigger-emoji { font-size: 48px; }
+  #trigger-modal .trigger-title { font-size: 20px; font-weight: 700; margin-top: 8px; }
+  #trigger-modal .trigger-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* Attach preview */
+  .attach-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .attach-thumb {
+    width: 70px; height: 70px; border-radius: 8px; object-fit: cover;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; cursor: pointer; position: relative;
+  }
+  .attach-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+  .attach-thumb .del-btn { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; background: var(--red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; cursor: pointer; }
+
+  /* Emoji picker row */
+  .emoji-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .emoji-opt { width: 40px; height: 40px; border-radius: 8px; background: var(--surface2); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; }
+  .emoji-opt.selected { border-color: var(--accent); }
+
+  /* Radius slider */
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  /* Search */
+  .search-box { padding: 0 16px 12px; }
+  .search-box input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-size: 15px; outline: none; }
+
+  /* Segment */
+  .segment { display: flex; background: var(--surface2); border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+  .seg-btn { flex: 1; padding: 7px; border: none; background: none; color: var(--text2); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .seg-btn.active { background: var(--surface); color: var(--text); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 60px 20px; color: var(--text2); }
+  .empty .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .4; }
+  .empty p { font-size: 15px; line-height: 1.6; }
+
+  /* Action row */
+  .action-row { display: flex; gap: 8px; padding: 0 20px 8px; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 18px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    opacity: 0; pointer-events: none; z-index: 999; transition: all .25s; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>Geo<span>Task</span></h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm btn-secondary" onclick="importFromClipboard()" title="가져오기">📥 가져오기</button>
+    </div>
+  </div>
+
+  <div id="content">
+    <!-- 위치 목록 -->
+    <div id="panel-locations" class="panel active">
+      <div id="location-bar">
+        <div class="loc-dot pending" id="loc-dot"></div>
+        <span id="loc-status">위치 권한 요청 중...</span>
+      </div>
+      <div id="locations-list"></div>
+    </div>
+
+    <!-- 근처 -->
+    <div id="panel-nearby" class="panel">
+      <div id="nearby-list"></div>
+    </div>
+
+    <!-- 전체 할일 -->
+    <div id="panel-tasks" class="panel">
+      <div class="search-box">
+        <input type="search" placeholder="할일 검색..." id="task-search" oninput="renderAllTasks()">
+      </div>
+      <div class="segment">
+        <button class="seg-btn active" onclick="setFilter('incomplete',this)">미완료</button>
+        <button class="seg-btn" onclick="setFilter('complete',this)">완료</button>
+        <button class="seg-btn" onclick="setFilter('all',this)">전체</button>
+      </div>
+      <div id="all-tasks-list"></div>
+    </div>
+  </div>
+
+  <div id="tabbar">
+    <button class="tab-btn active" onclick="switchTab('locations',this)" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      위치
+      <div class="tab-badge" id="badge-locations" style="display:none"></div>
+    </button>
+    <button class="tab-btn" onclick="switchTab('nearby',this)" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
+      근처
+    </button>
+    <button class="tab-btn" onclick="switchTab('tasks',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      모든 할일
+    </button>
+  </div>
+</div>
+
+<button id="fab" onclick="openAddLocation()">＋</button>
+<div id="toast"></div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- 위치 추가/편집 모달 -->
+<div id="modal-location" class="modal-overlay" style="display:none" onclick="closeOnOverlay(event,'modal-location')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-location-title">위치 추가</div>
+    <div class="form-body">
+      <div class="field">
+        <label>이모지</label>
+        <div class="emoji-row" id="emoji-row"></div>
+      </div>
+      <div class="field">
+        <label>위치 이름</label>
+        <input id="loc-name" type="text" placeholder="예: 집, 회사, 마트">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>위도</label>
+          <input id="loc-lat" type="number" step="0.00001" placeholder="37.5665">
+        </div>
+        <div class="field">
+          <label>경도</label>
+          <input id="loc-lng" type="number" step="0.00001" placeholder="126.9780">
+        </div>
+      </div>
+      <div class="field">
+        <label>📍 현재 위치로 자동 입력</label>
+        <button class="btn btn-secondary btn-sm" onclick="fillCurrentLocation()" style="width:100%">현재 위치 사용</button>
+      </div>
+      <div class="field">
+        <label>감지 반경: <span id="radius-label">100</span>m</label>
+        <input type="range" id="loc-radius" min="50" max="500" step="10" value="100" oninput="document.getElementById('radius-label').textContent=this.value">
+      </div>
+      <div class="action-row" style="padding:0;gap:8px;margin-top:4px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-location')">취소</button>
+        <button class="btn btn-primary" style="flex:1" onclick="saveLocation()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 위치 상세 모달 -->
+<div id="modal-detail" class="modal-overlay" style="display:none" onclick="closeOnOverlay(event,'modal-detail')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<!-- 할일 추가 모달 -->
+<div id="modal-task" class="modal-overlay" style="display:none" onclick="closeOnOverlay(event,'modal-task')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">할일 추가</div>
+    <div class="form-body">
+      <div class="field">
+        <label>할일 제목</label>
+        <input id="task-title" type="text" placeholder="무엇을 해야 하나요?">
+      </div>
+      <div class="field">
+        <label>메모 (선택)</label>
+        <textarea id="task-note" rows="3" placeholder="추가 메모..."></textarea>
+      </div>
+      <div class="field">
+        <label>첨부 파일</label>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-photo').click()" style="flex:1">📷 사진</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-file').click()" style="flex:1">📄 파일</button>
+        </div>
+        <input type="file" id="pick-photo" accept="image/*" style="display:none" onchange="handleAttach(this,'image')">
+        <input type="file" id="pick-file" accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,*" style="display:none" onchange="handleAttach(this,'file')">
+        <div class="attach-grid" id="attach-preview"></div>
+      </div>
+      <div class="action-row" style="padding:0;gap:8px;margin-top:4px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-task')">취소</button>
+        <button class="btn btn-primary" style="flex:1" onclick="saveTask()">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 트리거 모달 (도착 시 자동 팝업) -->
+<div id="modal-trigger" class="modal-overlay" style="display:none">
+  <div class="modal" id="trigger-modal">
+    <div class="modal-handle"></div>
+    <div class="trigger-header">
+      <div class="trigger-emoji" id="trigger-emoji">📍</div>
+      <div class="trigger-title" id="trigger-title"></div>
+      <div class="trigger-sub" id="trigger-sub"></div>
+    </div>
+    <div class="form-body">
+      <div class="task-list" id="trigger-tasks"></div>
+      <div style="margin-top:16px;display:flex;gap:8px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-trigger')">닫기</button>
+        <button class="btn btn-primary" style="flex:1" onclick="closeModal('modal-trigger');openDetail(currentTriggerId)">전체 보기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+let locations = JSON.parse(localStorage.getItem('gt_locations') || '[]');
+let currentLat = null, currentLng = null;
+let watchId = null;
+let editingLocId = null;
+let editingTaskLocId = null;
+let pendingAttachments = []; // [{name, type, dataUrl}]
+let taskFilter = 'incomplete';
+let triggeredIds = new Set(); // 이미 알림 띄운 ID (세션 기간)
+let currentTriggerId = null;
+
+const EMOJIS = ['📍','🏠','🏢','🏪','🏫','🏥','🛒','🍽️','☕','💪','📚','🎯','✈️','🚉','🏋️','🎮','🌳','🏖️'];
+
+// ==================== SAVE ====================
+function save() {
+  localStorage.setItem('gt_locations', JSON.stringify(locations));
+}
+
+// ==================== TABS ====================
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'nearby') renderNearby();
+  if (name === 'tasks') renderAllTasks();
+  if (name === 'locations') renderLocations();
+  // FAB 표시/숨김
+  document.getElementById('fab').style.display = name === 'locations' ? 'flex' : 'none';
+}
+
+// ==================== LOCATION TRACKING ====================
+function startTracking() {
+  if (!navigator.geolocation) {
+    setLocStatus('inactive', '이 기기는 위치를 지원하지 않습니다');
+    return;
+  }
+  setLocStatus('pending', '위치 권한 요청 중...');
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+      setLocStatus('active', `현재 위치 수신 중 (±${Math.round(pos.coords.accuracy)}m)`);
+      checkGeofences();
+      renderNearby();
+      updateLocationDistances();
+    },
+    err => {
+      if (err.code === 1) setLocStatus('inactive', '위치 권한이 거부됐습니다 → 설정에서 허용');
+      else setLocStatus('inactive', '위치를 가져올 수 없습니다');
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+  );
+}
+
+function setLocStatus(state, msg) {
+  const dot = document.getElementById('loc-dot');
+  const status = document.getElementById('loc-status');
+  dot.className = 'loc-dot ' + state;
+  status.textContent = msg;
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function fmtDist(m) {
+  if (m == null) return '—';
+  return m < 1000 ? Math.round(m)+'m' : (m/1000).toFixed(1)+'km';
+}
+
+function checkGeofences() {
+  if (currentLat == null) return;
+  locations.forEach(loc => {
+    if (!loc.active) return;
+    const dist = haversine(currentLat, currentLng, loc.lat, loc.lng);
+    if (dist <= loc.radius && !triggeredIds.has(loc.id)) {
+      const incomplete = loc.tasks.filter(t => !t.done);
+      if (incomplete.length > 0) {
+        triggeredIds.add(loc.id);
+        showTriggerModal(loc);
+      }
+    }
+    // 반경 나가면 다시 트리거 가능하게 리셋
+    if (dist > loc.radius * 1.5) {
+      triggeredIds.delete(loc.id);
+    }
+  });
+}
+
+// ==================== TRIGGER MODAL ====================
+function showTriggerModal(loc) {
+  currentTriggerId = loc.id;
+  document.getElementById('trigger-emoji').textContent = loc.emoji;
+  document.getElementById('trigger-title').textContent = loc.name + '에 도착했습니다!';
+  const incomplete = loc.tasks.filter(t => !t.done);
+  document.getElementById('trigger-sub').textContent = `할일 ${incomplete.length}개가 있어요`;
+
+  const list = document.getElementById('trigger-tasks');
+  list.innerHTML = incomplete.map(t => `
+    <div class="task-row">
+      <div class="task-check${t.done?' done':''}" onclick="toggleTaskInTrigger('${loc.id}','${t.id}',this)"></div>
+      <div>
+        <div class="task-text${t.done?' done':''}">${esc(t.title)}</div>
+        ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  // 브라우저 알림도 시도
+  sendNotification(loc.name, `할일 ${incomplete.length}개`);
+
+  document.getElementById('modal-trigger').style.display = 'flex';
+}
+
+function toggleTaskInTrigger(locId, taskId, el) {
+  const loc = locations.find(l => l.id === locId);
+  if (!loc) return;
+  const task = loc.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.done = !task.done;
+  el.classList.toggle('done');
+  el.nextElementSibling.querySelector('.task-text').classList.toggle('done', task.done);
+  save();
+}
+
+// ==================== BROWSER NOTIFICATIONS ====================
+function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('📍 ' + title, { body, icon: '' });
+  }
+}
+
+// ==================== RENDER LOCATIONS ====================
+function renderLocations() {
+  const el = document.getElementById('locations-list');
+  if (!locations.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📍</div><p>+ 버튼을 눌러<br>첫 번째 위치를 추가하세요</p></div>`;
+    updateBadge(); return;
+  }
+  el.innerHTML = locations.map(loc => {
+    const incomplete = loc.tasks.filter(t => !t.done).length;
+    const dist = currentLat != null ? haversine(currentLat,currentLng,loc.lat,loc.lng) : null;
+    const isNearby = dist != null && dist <= loc.radius;
+    return `
+    <div class="card${isNearby?' nearby-active':''}" onclick="openDetail('${loc.id}')">
+      <div class="card-header">
+        <div class="card-emoji">${loc.emoji}</div>
+        <div class="card-info">
+          <div class="card-name">${esc(loc.name)} ${!loc.active?'<span class="badge-gray badge">비활성</span>':''}</div>
+          <div class="card-meta">
+            <span>📏 반경 ${loc.radius}m</span>
+            ${dist!=null?`<span>🧭 ${fmtDist(dist)}</span>`:''}
+            ${isNearby?'<span class="badge badge-green">지금 여기!</span>':''}
+          </div>
+        </div>
+        ${incomplete>0?`<span class="badge">${incomplete}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  updateBadge();
+}
+
+function updateLocationDistances() {
+  if (document.getElementById('panel-locations').classList.contains('active')) renderLocations();
+}
+
+function updateBadge() {
+  const total = locations.reduce((s,l)=>s+l.tasks.filter(t=>!t.done).length, 0);
+  const b = document.getElementById('badge-locations');
+  b.style.display = total > 0 ? 'flex' : 'none';
+  b.textContent = total;
+}
+
+// ==================== NEARBY ====================
+function renderNearby() {
+  const el = document.getElementById('nearby-list');
+  if (currentLat == null) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🛰️</div><p>위치를 수신 중입니다...<br>잠시 기다려주세요</p></div>`;
+    return;
+  }
+  const sorted = [...locations]
+    .filter(l => l.active)
+    .map(l => ({ ...l, dist: haversine(currentLat,currentLng,l.lat,l.lng) }))
+    .sort((a,b) => a.dist - b.dist);
+
+  if (!sorted.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🗺️</div><p>등록된 위치가 없습니다</p></div>`;
+    return;
+  }
+
+  el.innerHTML = sorted.map(loc => {
+    const incomplete = loc.tasks.filter(t=>!t.done);
+    const isInside = loc.dist <= loc.radius;
+    return `
+    <div class="card${isInside?' nearby-active':''}" onclick="openDetail('${loc.id}')">
+      <div class="card-header">
+        <div class="card-emoji">${loc.emoji}</div>
+        <div class="card-info">
+          <div class="card-name">${esc(loc.name)}</div>
+          <div class="card-meta">
+            <span>🧭 ${fmtDist(loc.dist)}</span>
+            ${isInside?'<span class="badge badge-green">지금 여기!</span>':''}
+          </div>
+        </div>
+        ${incomplete.length>0?`<span class="badge">${incomplete.length}</span>`:''}
+      </div>
+      ${incomplete.length>0?`
+      <div class="task-list">
+        ${incomplete.slice(0,3).map(t=>`
+          <div class="task-row">
+            <div class="task-check" onclick="event.stopPropagation();quickToggle('${loc.id}','${t.id}',this)"></div>
+            <div class="task-text">${esc(t.title)}</div>
+          </div>
+        `).join('')}
+        ${incomplete.length>3?`<div style="font-size:12px;color:var(--text2);padding-left:30px">외 ${incomplete.length-3}개 더...</div>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function quickToggle(locId, taskId, el) {
+  const loc = locations.find(l=>l.id===locId);
+  const task = loc?.tasks.find(t=>t.id===taskId);
+  if (!task) return;
+  task.done = !task.done;
+  el.classList.toggle('done');
+  save(); renderNearby();
+}
+
+// ==================== ALL TASKS ====================
+function setFilter(f, btn) {
+  taskFilter = f;
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAllTasks();
+}
+
+function renderAllTasks() {
+  const q = document.getElementById('task-search').value.toLowerCase();
+  const el = document.getElementById('all-tasks-list');
+  const items = [];
+  locations.forEach(loc => {
+    loc.tasks.forEach(t => {
+      if (taskFilter === 'incomplete' && t.done) return;
+      if (taskFilter === 'complete' && !t.done) return;
+      if (q && !t.title.toLowerCase().includes(q) && !(t.note||'').toLowerCase().includes(q)) return;
+      items.push({ loc, task: t });
+    });
+  });
+  if (!items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><p>할일이 없습니다</p></div>`;
+    return;
+  }
+  el.innerHTML = items.map(({loc,task}) => `
+    <div class="card" onclick="openDetail('${loc.id}')">
+      <div class="task-row">
+        <div class="task-check${task.done?' done':''}" onclick="event.stopPropagation();allToggle('${loc.id}','${task.id}',this)"></div>
+        <div style="flex:1;min-width:0">
+          <div class="task-text${task.done?' done':''}">${esc(task.title)}</div>
+          <div class="task-note">${loc.emoji} ${esc(loc.name)}</div>
+          ${task.note?`<div class="task-note">${esc(task.note)}</div>`:''}
+          ${task.attachments?.length?`<div class="task-attach">📎 ${task.attachments.length}개 첨부</div>`:''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function allToggle(locId, taskId, el) {
+  const loc = locations.find(l=>l.id===locId);
+  const task = loc?.tasks.find(t=>t.id===taskId);
+  if (!task) return;
+  task.done = !task.done;
+  el.classList.toggle('done');
+  el.nextElementSibling.querySelector('.task-text').classList.toggle('done', task.done);
+  save(); updateBadge();
+}
+
+// ==================== DETAIL MODAL ====================
+function openDetail(locId) {
+  const loc = locations.find(l=>l.id===locId);
+  if (!loc) return;
+  const el = document.getElementById('detail-content');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:28px">${loc.emoji}</span>
+        <div>
+          <div style="font-size:18px;font-weight:700">${esc(loc.name)}</div>
+          <div style="font-size:12px;color:var(--text2)">반경 ${loc.radius}m</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-secondary" onclick="editLocation('${loc.id}')">✏️</button>
+        <button class="btn btn-sm btn-secondary" onclick="shareLocation('${loc.id}')">📤</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteLocation('${loc.id}')">🗑️</button>
+      </div>
+    </div>
+    <div class="divider" style="margin:0 20px"></div>
+    <div style="padding:12px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-weight:600;font-size:15px">할일</span>
+        <button class="btn btn-primary btn-sm" onclick="openAddTask('${loc.id}')">+ 추가</button>
+      </div>
+      ${loc.tasks.length===0
+        ? '<div class="empty" style="padding:24px 0"><p>할일이 없습니다</p></div>'
+        : loc.tasks.map(t => `
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div class="task-check${t.done?' done':''}" onclick="toggleTask('${loc.id}','${t.id}',this)"></div>
+            <div style="flex:1;min-width:0">
+              <div class="task-text${t.done?' done':''}">${esc(t.title)}</div>
+              ${t.note?`<div class="task-note">${esc(t.note)}</div>`:''}
+              ${t.attachments?.length?`
+                <div class="attach-grid" style="margin-top:6px">
+                  ${t.attachments.map((a,i)=>a.type==='image'
+                    ? `<div class="attach-thumb" onclick="previewImg('${loc.id}','${t.id}',${i})"><img src="${a.dataUrl}"></div>`
+                    : `<div class="attach-thumb" style="font-size:20px" title="${esc(a.name)}">📄</div>`
+                  ).join('')}
+                </div>`:''}
+            </div>
+            <button class="btn btn-sm btn-danger" style="padding:4px 8px" onclick="deleteTask('${loc.id}','${t.id}')">✕</button>
+          </div>`).join('')}
+    </div>
+  `;
+  document.getElementById('modal-detail').style.display = 'flex';
+}
+
+function toggleTask(locId, taskId, el) {
+  const loc = locations.find(l=>l.id===locId);
+  const task = loc?.tasks.find(t=>t.id===taskId);
+  if (!task) return;
+  task.done = !task.done;
+  el.classList.toggle('done');
+  const textEl = el.nextElementSibling.querySelector('.task-text');
+  textEl.classList.toggle('done', task.done);
+  save(); updateBadge();
+}
+
+function deleteTask(locId, taskId) {
+  const loc = locations.find(l=>l.id===locId);
+  if (!loc) return;
+  loc.tasks = loc.tasks.filter(t=>t.id!==taskId);
+  save(); openDetail(locId);
+}
+
+function deleteLocation(locId) {
+  if (!confirm('이 위치와 모든 할일을 삭제할까요?')) return;
+  locations = locations.filter(l=>l.id!==locId);
+  save(); closeModal('modal-detail'); renderLocations();
+  showToast('위치가 삭제됐습니다');
+}
+
+function previewImg(locId, taskId, idx) {
+  const loc = locations.find(l=>l.id===locId);
+  const task = loc?.tasks.find(t=>t.id===taskId);
+  if (!task) return;
+  const a = task.attachments[idx];
+  const w = window.open();
+  w.document.write(`<img src="${a.dataUrl}" style="max-width:100%;display:block;margin:auto">`);
+}
+
+// ==================== ADD LOCATION ====================
+function openAddLocation() {
+  editingLocId = null;
+  document.getElementById('modal-location-title').textContent = '위치 추가';
+  document.getElementById('loc-name').value = '';
+  document.getElementById('loc-lat').value = currentLat || '';
+  document.getElementById('loc-lng').value = currentLng || '';
+  document.getElementById('loc-radius').value = 100;
+  document.getElementById('radius-label').textContent = 100;
+  renderEmojiPicker('📍');
+  document.getElementById('modal-location').style.display = 'flex';
+}
+
+function editLocation(locId) {
+  const loc = locations.find(l=>l.id===locId);
+  if (!loc) return;
+  editingLocId = locId;
+  document.getElementById('modal-location-title').textContent = '위치 편집';
+  document.getElementById('loc-name').value = loc.name;
+  document.getElementById('loc-lat').value = loc.lat;
+  document.getElementById('loc-lng').value = loc.lng;
+  document.getElementById('loc-radius').value = loc.radius;
+  document.getElementById('radius-label').textContent = loc.radius;
+  renderEmojiPicker(loc.emoji);
+  closeModal('modal-detail');
+  document.getElementById('modal-location').style.display = 'flex';
+}
+
+function renderEmojiPicker(selected) {
+  const el = document.getElementById('emoji-row');
+  el.innerHTML = EMOJIS.map(e =>
+    `<div class="emoji-opt${e===selected?' selected':''}" onclick="selectEmoji(this,'${e}')">${e}</div>`
+  ).join('');
+}
+
+function selectEmoji(el, emoji) {
+  document.querySelectorAll('.emoji-opt').forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function getSelectedEmoji() {
+  return document.querySelector('.emoji-opt.selected')?.textContent || '📍';
+}
+
+function fillCurrentLocation() {
+  if (currentLat == null) { showToast('위치를 아직 수신하지 못했습니다'); return; }
+  document.getElementById('loc-lat').value = currentLat.toFixed(6);
+  document.getElementById('loc-lng').value = currentLng.toFixed(6);
+  showToast('현재 위치가 입력됐습니다');
+}
+
+function saveLocation() {
+  const name = document.getElementById('loc-name').value.trim();
+  const lat = parseFloat(document.getElementById('loc-lat').value);
+  const lng = parseFloat(document.getElementById('loc-lng').value);
+  const radius = parseInt(document.getElementById('loc-radius').value);
+  const emoji = getSelectedEmoji();
+
+  if (!name) { showToast('위치 이름을 입력하세요'); return; }
+  if (isNaN(lat) || isNaN(lng)) { showToast('좌표를 입력하세요'); return; }
+
+  if (editingLocId) {
+    const loc = locations.find(l=>l.id===editingLocId);
+    if (loc) { loc.name=name; loc.lat=lat; loc.lng=lng; loc.radius=radius; loc.emoji=emoji; }
+  } else {
+    locations.push({ id: uid(), name, lat, lng, radius, emoji, active: true, tasks: [] });
+  }
+  save(); closeModal('modal-location'); renderLocations();
+  showToast(editingLocId ? '위치가 수정됐습니다' : '위치가 추가됐습니다');
+}
+
+// ==================== ADD TASK ====================
+function openAddTask(locId) {
+  editingTaskLocId = locId;
+  pendingAttachments = [];
+  document.getElementById('task-title').value = '';
+  document.getElementById('task-note').value = '';
+  document.getElementById('attach-preview').innerHTML = '';
+  document.getElementById('pick-photo').value = '';
+  document.getElementById('pick-file').value = '';
+  closeModal('modal-detail');
+  document.getElementById('modal-task').style.display = 'flex';
+}
+
+function handleAttach(input, type) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const att = { name: file.name, type, dataUrl: e.target.result };
+    pendingAttachments.push(att);
+    renderAttachPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderAttachPreview() {
+  const el = document.getElementById('attach-preview');
+  el.innerHTML = pendingAttachments.map((a,i) =>
+    a.type === 'image'
+      ? `<div class="attach-thumb"><img src="${a.dataUrl}"><div class="del-btn" onclick="removeAttach(${i})">✕</div></div>`
+      : `<div class="attach-thumb" style="font-size:20px" title="${esc(a.name)}">📄<div class="del-btn" onclick="removeAttach(${i})">✕</div></div>`
+  ).join('');
+}
+
+function removeAttach(i) {
+  pendingAttachments.splice(i,1);
+  renderAttachPreview();
+}
+
+function saveTask() {
+  const title = document.getElementById('task-title').value.trim();
+  if (!title) { showToast('할일 제목을 입력하세요'); return; }
+  const note = document.getElementById('task-note').value.trim();
+  const loc = locations.find(l=>l.id===editingTaskLocId);
+  if (!loc) return;
+  loc.tasks.push({ id: uid(), title, note, done: false, attachments: [...pendingAttachments] });
+  save(); closeModal('modal-task');
+  openDetail(editingTaskLocId);
+  showToast('할일이 추가됐습니다');
+}
+
+// ==================== SHARE / IMPORT ====================
+function shareLocation(locId) {
+  const loc = locations.find(l=>l.id===locId);
+  if (!loc) return;
+  const payload = btoa(unescape(encodeURIComponent(JSON.stringify(loc))));
+  const text = `[GeoTask 공유]\n위치: ${loc.name}\n\n아래 코드를 GeoTask 앱에서 📥 가져오기 버튼으로 붙여넣으세요:\n\nGEOTASK:${payload}`;
+  if (navigator.share) {
+    navigator.share({ title: `GeoTask - ${loc.name}`, text });
+  } else {
+    navigator.clipboard.writeText(text).then(()=>showToast('공유 텍스트가 복사됐습니다'));
+  }
+}
+
+function importFromClipboard() {
+  navigator.clipboard.readText().then(text => {
+    const match = text.match(/GEOTASK:([A-Za-z0-9+/=]+)/);
+    if (!match) { showToast('올바른 GeoTask 공유 코드가 없습니다'); return; }
+    try {
+      const loc = JSON.parse(decodeURIComponent(escape(atob(match[1]))));
+      const existing = locations.findIndex(l=>l.id===loc.id);
+      if (existing >= 0) {
+        // 병합
+        const existIds = new Set(locations[existing].tasks.map(t=>t.id));
+        loc.tasks.forEach(t => { if (!existIds.has(t.id)) locations[existing].tasks.push(t); });
+        showToast('기존 위치에 할일이 병합됐습니다');
+      } else {
+        locations.push(loc);
+        showToast(`'${loc.name}' 위치를 가져왔습니다`);
+      }
+      save(); renderLocations();
+    } catch { showToast('공유 코드를 읽을 수 없습니다'); }
+  }).catch(()=>{
+    const code = prompt('GeoTask 공유 코드를 붙여넣으세요:');
+    if (!code) return;
+    const match = code.match(/GEOTASK:([A-Za-z0-9+/=]+)/);
+    if (!match) { showToast('올바른 코드가 아닙니다'); return; }
+    try {
+      const loc = JSON.parse(decodeURIComponent(escape(atob(match[1]))));
+      locations.push(loc); save(); renderLocations();
+      showToast(`'${loc.name}' 위치를 가져왔습니다`);
+    } catch { showToast('코드를 읽을 수 없습니다'); }
+  });
+}
+
+// ==================== HELPERS ====================
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function closeOnOverlay(e, id) { if (e.target.id === id) closeModal(id); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// ==================== INIT ====================
+renderEmojiPicker('📍');
+renderLocations();
+startTracking();
+requestNotifPermission();
+
+// 위치 변경 주기적 감지 (Safari 포그라운드 보조)
+setInterval(() => {
+  if (currentLat != null) checkGeofences();
+}, 5000);
+</script>
+</body>
+</html>
