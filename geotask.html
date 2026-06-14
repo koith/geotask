@@ -340,13 +340,13 @@
         <textarea id="task-note" rows="3" placeholder="추가 메모..."></textarea>
       </div>
       <div class="field">
-        <label>첨부 파일</label>
+        <label>사진 첨부</label>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-photo').click()" style="flex:1">📷 사진</button>
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-file').click()" style="flex:1">📄 파일</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-camera').click()" style="flex:1">📷 촬영</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pick-gallery').click()" style="flex:1">🖼️ 갤러리</button>
         </div>
-        <input type="file" id="pick-photo" accept="image/*" style="display:none" onchange="handleAttach(this,'image')">
-        <input type="file" id="pick-file" style="display:none" onchange="handleAttach(this,'file')">
+        <input type="file" id="pick-camera" accept="image/*" capture="environment" style="display:none" onchange="handleAttach(this,'image')">
+        <input type="file" id="pick-gallery" accept="image/*" style="display:none" onchange="handleAttach(this,'image')">
         <div class="attach-grid" id="attach-preview"></div>
       </div>
       <div class="action-row" style="padding:0;gap:8px;margin-top:4px">
@@ -828,8 +828,8 @@ function openAddTask(locId) {
   document.getElementById('task-title').value = '';
   document.getElementById('task-note').value = '';
   document.getElementById('attach-preview').innerHTML = '';
-  document.getElementById('pick-photo').value = '';
-  document.getElementById('pick-file').value = '';
+  document.getElementById('pick-camera').value = '';
+  document.getElementById('pick-gallery').value = '';
   closeModal('modal-detail');
   document.getElementById('modal-task').style.display = 'flex';
 }
